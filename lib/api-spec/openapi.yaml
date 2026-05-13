@@ -3,20 +3,38 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Crypto Trading Bot API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: bot
+    description: Bot control and status
+  - name: trades
+    description: Trade management
+  - name: wallets
+    description: Wallet management
+  - name: strategies
+    description: Trading strategies
+  - name: exchanges
+    description: Exchange connections
+  - name: dashboard
+    description: Dashboard summary data
+  - name: logs
+    description: System logs
+  - name: settings
+    description: Bot settings and risk config
+  - name: backtests
+    description: Backtesting engine
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +42,719 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── BOT CONTROL ──────────────────────────────────────────────────────────────
+  /bot/status:
+    get:
+      operationId: getBotStatus
+      tags: [bot]
+      summary: Get bot runtime status
+      responses:
+        "200":
+          description: Bot status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /bot/start:
+    post:
+      operationId: startBot
+      tags: [bot]
+      summary: Start the trading bot
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotStartInput"
+      responses:
+        "200":
+          description: Started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /bot/stop:
+    post:
+      operationId: stopBot
+      tags: [bot]
+      summary: Stop the trading bot
+      responses:
+        "200":
+          description: Stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /bot/pause:
+    post:
+      operationId: pauseBot
+      tags: [bot]
+      summary: Pause trading (keep connections alive)
+      responses:
+        "200":
+          description: Paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /bot/resume:
+    post:
+      operationId: resumeBot
+      tags: [bot]
+      summary: Resume trading after pause
+      responses:
+        "200":
+          description: Resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  # ── DASHBOARD SUMMARY ────────────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard overview stats
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/pnl:
+    get:
+      operationId: getPnlHistory
+      tags: [dashboard]
+      summary: Get PnL history for charting
+      parameters:
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [1d, 7d, 30d, 90d, all]
+            default: 7d
+      responses:
+        "200":
+          description: PnL history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PnlHistory"
+
+  /dashboard/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent trading activity feed
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityFeed"
+
+  # ── TRADES ───────────────────────────────────────────────────────────────────
+  /trades:
+    get:
+      operationId: listTrades
+      tags: [trades]
+      summary: List all trades
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [open, closed, cancelled, all]
+            default: all
+        - in: query
+          name: exchange
+          schema:
+            type: string
+        - in: query
+          name: symbol
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of trades
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeList"
+    post:
+      operationId: createTrade
+      tags: [trades]
+      summary: Manually place a trade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TradeInput"
+      responses:
+        "201":
+          description: Trade created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trade"
+
+  /trades/{tradeId}:
+    get:
+      operationId: getTrade
+      tags: [trades]
+      summary: Get a single trade
+      parameters:
+        - in: path
+          name: tradeId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Trade details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trade"
+
+  /trades/{tradeId}/close:
+    post:
+      operationId: closeTrade
+      tags: [trades]
+      summary: Close an open trade
+      parameters:
+        - in: path
+          name: tradeId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TradeCloseInput"
+      responses:
+        "200":
+          description: Trade closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trade"
+
+  /trades/stats:
+    get:
+      operationId: getTradeStats
+      tags: [trades]
+      summary: Aggregate trade statistics
+      responses:
+        "200":
+          description: Trade statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeStats"
+
+  # ── WALLETS ──────────────────────────────────────────────────────────────────
+  /wallets:
+    get:
+      operationId: listWallets
+      tags: [wallets]
+      summary: List all wallets
+      responses:
+        "200":
+          description: List of wallets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletList"
+    post:
+      operationId: createWallet
+      tags: [wallets]
+      summary: Generate a new wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletInput"
+      responses:
+        "201":
+          description: Wallet created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+
+  /wallets/{walletId}:
+    get:
+      operationId: getWallet
+      tags: [wallets]
+      summary: Get wallet details
+      parameters:
+        - in: path
+          name: walletId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wallet details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+    delete:
+      operationId: deleteWallet
+      tags: [wallets]
+      summary: Remove a wallet
+      parameters:
+        - in: path
+          name: walletId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /wallets/import:
+    post:
+      operationId: importWallet
+      tags: [wallets]
+      summary: Import existing wallet by private key or mnemonic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletImportInput"
+      responses:
+        "201":
+          description: Wallet imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+
+  /wallets/{walletId}/export:
+    get:
+      operationId: exportWallet
+      tags: [wallets]
+      summary: Export wallet (encrypted)
+      parameters:
+        - in: path
+          name: walletId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Encrypted wallet export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletExport"
+
+  /wallets/{walletId}/balance:
+    get:
+      operationId: getWalletBalance
+      tags: [wallets]
+      summary: Get live wallet balances
+      parameters:
+        - in: path
+          name: walletId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wallet balances
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletBalance"
+
+  # ── STRATEGIES ───────────────────────────────────────────────────────────────
+  /strategies:
+    get:
+      operationId: listStrategies
+      tags: [strategies]
+      summary: List all strategies
+      responses:
+        "200":
+          description: List of strategies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategyList"
+    post:
+      operationId: createStrategy
+      tags: [strategies]
+      summary: Create a new strategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StrategyInput"
+      responses:
+        "201":
+          description: Strategy created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Strategy"
+
+  /strategies/{strategyId}:
+    get:
+      operationId: getStrategy
+      tags: [strategies]
+      summary: Get strategy details
+      parameters:
+        - in: path
+          name: strategyId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Strategy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Strategy"
+    put:
+      operationId: updateStrategy
+      tags: [strategies]
+      summary: Update strategy config (live)
+      parameters:
+        - in: path
+          name: strategyId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StrategyUpdate"
+      responses:
+        "200":
+          description: Updated strategy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Strategy"
+    delete:
+      operationId: deleteStrategy
+      tags: [strategies]
+      summary: Delete a strategy
+      parameters:
+        - in: path
+          name: strategyId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /strategies/{strategyId}/activate:
+    post:
+      operationId: activateStrategy
+      tags: [strategies]
+      summary: Activate a strategy
+      parameters:
+        - in: path
+          name: strategyId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Strategy activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Strategy"
+
+  /strategies/{strategyId}/deactivate:
+    post:
+      operationId: deactivateStrategy
+      tags: [strategies]
+      summary: Deactivate a strategy
+      parameters:
+        - in: path
+          name: strategyId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Strategy deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Strategy"
+
+  # ── EXCHANGES ─────────────────────────────────────────────────────────────────
+  /exchanges:
+    get:
+      operationId: listExchanges
+      tags: [exchanges]
+      summary: List connected exchanges
+      responses:
+        "200":
+          description: List of exchanges
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExchangeList"
+    post:
+      operationId: addExchange
+      tags: [exchanges]
+      summary: Add an exchange connection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExchangeInput"
+      responses:
+        "201":
+          description: Exchange added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Exchange"
+
+  /exchanges/{exchangeId}:
+    get:
+      operationId: getExchange
+      tags: [exchanges]
+      summary: Get exchange details
+      parameters:
+        - in: path
+          name: exchangeId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Exchange details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Exchange"
+    delete:
+      operationId: removeExchange
+      tags: [exchanges]
+      summary: Remove an exchange connection
+      parameters:
+        - in: path
+          name: exchangeId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed
+
+  /exchanges/{exchangeId}/test:
+    post:
+      operationId: testExchange
+      tags: [exchanges]
+      summary: Test exchange connectivity
+      parameters:
+        - in: path
+          name: exchangeId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExchangeTestResult"
+
+  /exchanges/{exchangeId}/balance:
+    get:
+      operationId: getExchangeBalance
+      tags: [exchanges]
+      summary: Get exchange account balances
+      parameters:
+        - in: path
+          name: exchangeId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Exchange balances
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExchangeBalance"
+
+  /exchanges/supported:
+    get:
+      operationId: getSupportedExchanges
+      tags: [exchanges]
+      summary: List all supported exchanges (CCXT)
+      responses:
+        "200":
+          description: Supported exchanges
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportedExchanges"
+
+  # ── LOGS ─────────────────────────────────────────────────────────────────────
+  /logs:
+    get:
+      operationId: getLogs
+      tags: [logs]
+      summary: Get system logs
+      parameters:
+        - in: query
+          name: level
+          schema:
+            type: string
+            enum: [debug, info, warn, error, all]
+            default: all
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 100
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: source
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Log entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogList"
+
+  # ── SETTINGS ─────────────────────────────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get bot settings and risk config
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotSettings"
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update bot settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsInput"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotSettings"
+
+  # ── BACKTESTING ──────────────────────────────────────────────────────────────
+  /backtests:
+    get:
+      operationId: listBacktests
+      tags: [backtests]
+      summary: List backtest runs
+      responses:
+        "200":
+          description: List of backtests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestList"
+    post:
+      operationId: runBacktest
+      tags: [backtests]
+      summary: Start a new backtest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BacktestInput"
+      responses:
+        "202":
+          description: Backtest started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Backtest"
+
+  /backtests/{backtestId}:
+    get:
+      operationId: getBacktest
+      tags: [backtests]
+      summary: Get backtest results
+      parameters:
+        - in: path
+          name: backtestId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Backtest results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Backtest"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +762,835 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    # ── BOT ────────────────────────────────────────────────────────────────────
+    BotStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [running, stopped, paused, error]
+        mode:
+          type: string
+          enum: [live, paper]
+        uptime:
+          type: number
+        activeStrategies:
+          type: integer
+        openTrades:
+          type: integer
+        totalTradesToday:
+          type: integer
+        lastError:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          nullable: true
+        version:
+          type: string
+      required: [state, mode, uptime, activeStrategies, openTrades, totalTradesToday, lastError, startedAt, version]
+
+    BotStartInput:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [live, paper]
+          default: paper
+
+    # ── DASHBOARD ──────────────────────────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      properties:
+        totalPnl:
+          type: number
+        totalPnlPercent:
+          type: number
+        todayPnl:
+          type: number
+        todayPnlPercent:
+          type: number
+        weekPnl:
+          type: number
+        openTrades:
+          type: integer
+        closedTrades:
+          type: integer
+        winRate:
+          type: number
+        totalVolume:
+          type: number
+        activeExchanges:
+          type: integer
+        totalWallets:
+          type: integer
+        totalBalance:
+          type: number
+        botState:
+          type: string
+          enum: [running, stopped, paused, error]
+        bestTrade:
+          $ref: "#/components/schemas/TradeSummary"
+          nullable: true
+        worstTrade:
+          $ref: "#/components/schemas/TradeSummary"
+          nullable: true
+      required: [totalPnl, totalPnlPercent, todayPnl, todayPnlPercent, weekPnl, openTrades, closedTrades, winRate, totalVolume, activeExchanges, totalWallets, totalBalance, botState, bestTrade, worstTrade]
+
+    TradeSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        symbol:
+          type: string
+        pnl:
+          type: number
+        pnlPercent:
+          type: number
+      required: [id, symbol, pnl, pnlPercent]
+
+    PnlHistory:
+      type: object
+      properties:
+        period:
+          type: string
+        dataPoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/PnlDataPoint"
+      required: [period, dataPoints]
+
+    PnlDataPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        pnl:
+          type: number
+        cumulativePnl:
+          type: number
+        trades:
+          type: integer
+      required: [timestamp, pnl, cumulativePnl, trades]
+
+    ActivityFeed:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityItem"
+      required: [items]
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [trade_opened, trade_closed, strategy_activated, bot_started, bot_stopped, error, wallet_created, exchange_connected]
+        message:
+          type: string
+        timestamp:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [id, type, message, timestamp, metadata]
+
+    # ── TRADES ─────────────────────────────────────────────────────────────────
+    Trade:
+      type: object
+      properties:
+        id:
+          type: string
+        exchangeId:
+          type: string
+        exchangeName:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        orderType:
+          type: string
+          enum: [market, limit, stop_loss, take_profit, trailing_stop, oco, grid]
+        status:
+          type: string
+          enum: [open, closed, cancelled, pending]
+        strategyId:
+          type: string
+          nullable: true
+        strategyName:
+          type: string
+          nullable: true
+        entryPrice:
+          type: number
+        exitPrice:
+          type: number
+          nullable: true
+        quantity:
+          type: number
+        totalCost:
+          type: number
+        pnl:
+          type: number
+          nullable: true
+        pnlPercent:
+          type: number
+          nullable: true
+        fees:
+          type: number
+        stopLoss:
+          type: number
+          nullable: true
+        takeProfit:
+          type: number
+          nullable: true
+        trailingStop:
+          type: number
+          nullable: true
+        mode:
+          type: string
+          enum: [live, paper]
+        externalOrderId:
+          type: string
+          nullable: true
+        openedAt:
+          type: string
+        closedAt:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required: [id, exchangeId, exchangeName, symbol, side, orderType, status, strategyId, strategyName, entryPrice, exitPrice, quantity, totalCost, pnl, pnlPercent, fees, stopLoss, takeProfit, trailingStop, mode, externalOrderId, openedAt, closedAt, notes]
+
+    TradeList:
+      type: object
+      properties:
+        trades:
+          type: array
+          items:
+            $ref: "#/components/schemas/Trade"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required: [trades, total, limit, offset]
+
+    TradeStats:
+      type: object
+      properties:
+        totalTrades:
+          type: integer
+        openTrades:
+          type: integer
+        closedTrades:
+          type: integer
+        winningTrades:
+          type: integer
+        losingTrades:
+          type: integer
+        winRate:
+          type: number
+        totalPnl:
+          type: number
+        avgPnl:
+          type: number
+        avgWin:
+          type: number
+        avgLoss:
+          type: number
+        profitFactor:
+          type: number
+        maxDrawdown:
+          type: number
+        bestTrade:
+          type: number
+        worstTrade:
+          type: number
+        avgDuration:
+          type: number
+        totalFees:
+          type: number
+        totalVolume:
+          type: number
+      required: [totalTrades, openTrades, closedTrades, winningTrades, losingTrades, winRate, totalPnl, avgPnl, avgWin, avgLoss, profitFactor, maxDrawdown, bestTrade, worstTrade, avgDuration, totalFees, totalVolume]
+
+    TradeInput:
+      type: object
+      properties:
+        exchangeId:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        orderType:
+          type: string
+          enum: [market, limit, stop_loss, take_profit, trailing_stop, oco, grid]
+        quantity:
+          type: number
+        price:
+          type: number
+          nullable: true
+        stopLoss:
+          type: number
+          nullable: true
+        takeProfit:
+          type: number
+          nullable: true
+        trailingStop:
+          type: number
+          nullable: true
+      required: [exchangeId, symbol, side, orderType, quantity]
+
+    TradeCloseInput:
+      type: object
+      properties:
+        orderType:
+          type: string
+          enum: [market, limit]
+          default: market
+        price:
+          type: number
+          nullable: true
+
+    # ── WALLETS ────────────────────────────────────────────────────────────────
+    Wallet:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        chain:
+          type: string
+          enum: [ethereum, bsc, solana, bitcoin, polygon]
+        address:
+          type: string
+        isImported:
+          type: boolean
+        createdAt:
+          type: string
+        balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenBalance"
+          nullable: true
+      required: [id, label, chain, address, isImported, createdAt, balances]
+
+    WalletList:
+      type: object
+      properties:
+        wallets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Wallet"
+        total:
+          type: integer
+      required: [wallets, total]
+
+    TokenBalance:
+      type: object
+      properties:
+        token:
+          type: string
+        symbol:
+          type: string
+        balance:
+          type: string
+        usdValue:
+          type: number
+          nullable: true
+      required: [token, symbol, balance, usdValue]
+
+    WalletBalance:
+      type: object
+      properties:
+        walletId:
+          type: string
+        address:
+          type: string
+        chain:
+          type: string
+        balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenBalance"
+        totalUsdValue:
+          type: number
+        fetchedAt:
+          type: string
+      required: [walletId, address, chain, balances, totalUsdValue, fetchedAt]
+
+    WalletExport:
+      type: object
+      properties:
+        walletId:
+          type: string
+        chain:
+          type: string
+        address:
+          type: string
+        encryptedData:
+          type: string
+        exportedAt:
+          type: string
+      required: [walletId, chain, address, encryptedData, exportedAt]
+
+    WalletInput:
+      type: object
+      properties:
+        label:
+          type: string
+        chain:
+          type: string
+          enum: [ethereum, bsc, solana, bitcoin, polygon]
+      required: [label, chain]
+
+    WalletImportInput:
+      type: object
+      properties:
+        label:
+          type: string
+        chain:
+          type: string
+          enum: [ethereum, bsc, solana, bitcoin, polygon]
+        privateKey:
+          type: string
+          nullable: true
+        mnemonic:
+          type: string
+          nullable: true
+      required: [label, chain]
+
+    # ── STRATEGIES ─────────────────────────────────────────────────────────────
+    Strategy:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [scalping, momentum, arbitrage, grid, sniping, ai_signal, manual, macd_cross, rsi_reversal, bb_squeeze]
+        status:
+          type: string
+          enum: [active, inactive, error]
+        exchangeId:
+          type: string
+          nullable: true
+        symbols:
+          type: array
+          items:
+            type: string
+        config:
+          type: object
+          additionalProperties: true
+        riskConfig:
+          $ref: "#/components/schemas/RiskConfig"
+        stats:
+          $ref: "#/components/schemas/StrategyStats"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, name, description, type, status, exchangeId, symbols, config, riskConfig, stats, createdAt, updatedAt]
+
+    StrategyList:
+      type: object
+      properties:
+        strategies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Strategy"
+        total:
+          type: integer
+      required: [strategies, total]
+
+    RiskConfig:
+      type: object
+      properties:
+        maxPositionSize:
+          type: number
+        maxOpenTrades:
+          type: integer
+        dailyLossLimit:
+          type: number
+        tradeСooldownSeconds:
+          type: integer
+        stopLossPercent:
+          type: number
+          nullable: true
+        takeProfitPercent:
+          type: number
+          nullable: true
+        trailingStopPercent:
+          type: number
+          nullable: true
+      required: [maxPositionSize, maxOpenTrades, dailyLossLimit, tradeСooldownSeconds, stopLossPercent, takeProfitPercent, trailingStopPercent]
+
+    StrategyStats:
+      type: object
+      properties:
+        totalTrades:
+          type: integer
+        winRate:
+          type: number
+        totalPnl:
+          type: number
+        avgPnl:
+          type: number
+      required: [totalTrades, winRate, totalPnl, avgPnl]
+
+    StrategyInput:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [scalping, momentum, arbitrage, grid, sniping, ai_signal, manual, macd_cross, rsi_reversal, bb_squeeze]
+        exchangeId:
+          type: string
+          nullable: true
+        symbols:
+          type: array
+          items:
+            type: string
+        config:
+          type: object
+          additionalProperties: true
+        riskConfig:
+          $ref: "#/components/schemas/RiskConfig"
+      required: [name, type, symbols]
+
+    StrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        exchangeId:
+          type: string
+          nullable: true
+        symbols:
+          type: array
+          items:
+            type: string
+        config:
+          type: object
+          additionalProperties: true
+        riskConfig:
+          $ref: "#/components/schemas/RiskConfig"
+
+    # ── EXCHANGES ──────────────────────────────────────────────────────────────
+    Exchange:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        exchangeId:
+          type: string
+        label:
+          type: string
+        status:
+          type: string
+          enum: [connected, disconnected, error, testing]
+        isTestnet:
+          type: boolean
+        paperTrading:
+          type: boolean
+        rateLimit:
+          type: integer
+        createdAt:
+          type: string
+        lastConnected:
+          type: string
+          nullable: true
+      required: [id, name, exchangeId, label, status, isTestnet, paperTrading, rateLimit, createdAt, lastConnected]
+
+    ExchangeList:
+      type: object
+      properties:
+        exchanges:
+          type: array
+          items:
+            $ref: "#/components/schemas/Exchange"
+        total:
+          type: integer
+      required: [exchanges, total]
+
+    ExchangeInput:
+      type: object
+      properties:
+        exchangeId:
+          type: string
+        label:
+          type: string
+        apiKey:
+          type: string
+        apiSecret:
+          type: string
+        isTestnet:
+          type: boolean
+          default: false
+        paperTrading:
+          type: boolean
+          default: true
+        passphrase:
+          type: string
+          nullable: true
+      required: [exchangeId, label, apiKey, apiSecret]
+
+    ExchangeTestResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        latencyMs:
+          type: number
+        message:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+      required: [success, latencyMs, message, permissions]
+
+    ExchangeBalance:
+      type: object
+      properties:
+        exchangeId:
+          type: string
+        balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetBalance"
+        totalUsdValue:
+          type: number
+        fetchedAt:
+          type: string
+      required: [exchangeId, balances, totalUsdValue, fetchedAt]
+
+    AssetBalance:
+      type: object
+      properties:
+        asset:
+          type: string
+        free:
+          type: number
+        locked:
+          type: number
+        total:
+          type: number
+        usdValue:
+          type: number
+          nullable: true
+      required: [asset, free, locked, total, usdValue]
+
+    SupportedExchanges:
+      type: object
+      properties:
+        exchanges:
+          type: array
+          items:
+            type: string
+      required: [exchanges]
+
+    # ── LOGS ───────────────────────────────────────────────────────────────────
+    LogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        level:
+          type: string
+          enum: [debug, info, warn, error]
+        message:
+          type: string
+        source:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+        timestamp:
+          type: string
+      required: [id, level, message, source, metadata, timestamp]
+
+    LogList:
+      type: object
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/LogEntry"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required: [logs, total, limit, offset]
+
+    # ── SETTINGS ───────────────────────────────────────────────────────────────
+    BotSettings:
+      type: object
+      properties:
+        defaultMode:
+          type: string
+          enum: [live, paper]
+        globalRisk:
+          $ref: "#/components/schemas/RiskConfig"
+        notifications:
+          $ref: "#/components/schemas/NotificationSettings"
+        websocket:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            reconnectIntervalMs:
+              type: integer
+          required: [enabled, reconnectIntervalMs]
+        updatedAt:
+          type: string
+      required: [defaultMode, globalRisk, notifications, websocket, updatedAt]
+
+    NotificationSettings:
+      type: object
+      properties:
+        telegramEnabled:
+          type: boolean
+        telegramChatId:
+          type: string
+          nullable: true
+        discordEnabled:
+          type: boolean
+        discordWebhookUrl:
+          type: string
+          nullable: true
+        notifyOnOpen:
+          type: boolean
+        notifyOnClose:
+          type: boolean
+        notifyOnError:
+          type: boolean
+        notifyOnProfit:
+          type: boolean
+      required: [telegramEnabled, telegramChatId, discordEnabled, discordWebhookUrl, notifyOnOpen, notifyOnClose, notifyOnError, notifyOnProfit]
+
+    SettingsInput:
+      type: object
+      properties:
+        defaultMode:
+          type: string
+          enum: [live, paper]
+        globalRisk:
+          $ref: "#/components/schemas/RiskConfig"
+        notifications:
+          $ref: "#/components/schemas/NotificationSettings"
+
+    # ── BACKTESTS ──────────────────────────────────────────────────────────────
+    Backtest:
+      type: object
+      properties:
+        id:
+          type: string
+        strategyType:
+          type: string
+        symbol:
+          type: string
+        exchange:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        config:
+          type: object
+          additionalProperties: true
+        results:
+          $ref: "#/components/schemas/BacktestResults"
+          nullable: true
+        createdAt:
+          type: string
+        completedAt:
+          type: string
+          nullable: true
+      required: [id, strategyType, symbol, exchange, startDate, endDate, status, config, results, createdAt, completedAt]
+
+    BacktestResults:
+      type: object
+      properties:
+        totalTrades:
+          type: integer
+        winRate:
+          type: number
+        totalPnl:
+          type: number
+        totalPnlPercent:
+          type: number
+        maxDrawdown:
+          type: number
+        sharpeRatio:
+          type: number
+        profitFactor:
+          type: number
+        avgTradeMs:
+          type: number
+        equityCurve:
+          type: array
+          items:
+            $ref: "#/components/schemas/PnlDataPoint"
+      required: [totalTrades, winRate, totalPnl, totalPnlPercent, maxDrawdown, sharpeRatio, profitFactor, avgTradeMs, equityCurve]
+
+    BacktestList:
+      type: object
+      properties:
+        backtests:
+          type: array
+          items:
+            $ref: "#/components/schemas/Backtest"
+        total:
+          type: integer
+      required: [backtests, total]
+
+    BacktestInput:
+      type: object
+      properties:
+        strategyType:
+          type: string
+        symbol:
+          type: string
+        exchange:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+      required: [strategyType, symbol, exchange, startDate, endDate]

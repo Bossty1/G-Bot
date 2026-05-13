@@ -10,14 +10,26 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@solana/web3.js": "^1.98.4",
+    "@types/crypto-js": "^4.2.2",
+    "@types/ws": "^8.18.1",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
+    "bitcoinjs-lib": "^7.0.1",
+    "ccxt": "^4.5.53",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
+    "crypto-js": "^4.2.0",
     "drizzle-orm": "catalog:",
+    "ecpair": "^3.0.1",
+    "ethers": "^6.16.0",
     "express": "^5",
+    "nanoid": "^5.1.11",
     "pino": "^9",
-    "pino-http": "^10"
+    "pino-http": "^10",
+    "tiny-secp256k1": "^2.2.4",
+    "uuid": "^14.0.0",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

@@ -1,45 +1,64 @@
-# [Project name]
+# CryptoBot Dashboard
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A professional-grade automated crypto trading bot platform with real-time dashboard, multi-chain wallet generation, paper trading mode, strategy management, and backtesting.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm --filter @workspace/trading-dashboard run dev` — run the frontend (port 24210)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL`, `SESSION_SECRET`
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- API: Express 5 + WebSocket (`ws`)
+- DB: PostgreSQL + Drizzle ORM (7 tables: trades, wallets, strategies, exchanges, logs, backtests, settings)
+- Frontend: React + Vite, Tailwind CSS, Recharts, TanStack Query, Wouter
+- Wallet generation: ethers.js (EVM), @solana/web3.js (Solana)
+- Encryption: AES via crypto-js (private keys encrypted at rest)
+- Validation: Zod, drizzle-zod
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/db/src/schema/` — Drizzle schema (source of truth for DB)
+- `lib/api-spec/openapi.yaml` — OpenAPI spec
+- `artifacts/api-server/src/routes/` — all API route handlers
+- `artifacts/api-server/src/lib/` — botState, wallet, encryption, seed, id
+- `artifacts/trading-dashboard/src/pages/` — all dashboard pages
+- `artifacts/trading-dashboard/src/components/` — Sidebar, StatCard, BotControls
+- `artifacts/trading-dashboard/src/hooks/useWebSocket.ts` — real-time bot status
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- API routes under `/api` prefix; WebSocket at `/api/ws` for proxy compatibility
+- Private keys and API secrets AES-encrypted with SESSION_SECRET before DB storage
+- Bot state is in-memory (singleton) with uptime timer; status broadcast via WebSocket every 5s
+- Paper trading mode is default — live mode requires explicit opt-in
+- Seed data auto-created on first boot (checks if trades table is empty)
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Dashboard: real-time PnL chart, bot controls (start/stop/pause), activity feed
+- Trades: view all trades with open/close controls, win rate stats
+- Strategies: create, activate/deactivate, view per-strategy stats
+- Exchanges: add API keys (encrypted), test connections, view balances
+- Wallets: generate multi-chain wallets (ETH/BSC/SOL/BTC/MATIC), copy addresses
+- Backtests: run simulated strategy tests, view equity curves and metrics
+- Logs: filterable live log feed with source and metadata
+- Settings: risk management, notification config (Telegram/Discord)
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Dark crypto terminal theme (deep navy background, blue primary accent)
+- Font mono for prices/numbers
+- Paper trading as safe default
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- WebSocket path must be `/api/ws` (not `/ws`) to route through the shared proxy
+- Drizzle schema changes require `pnpm --filter @workspace/db run push` + `pnpm run typecheck:libs`
+- Never log sensitive data (private keys, API secrets) — they are always encrypted
+- Bot state is in-memory only; restarting the server resets the bot to "stopped"
